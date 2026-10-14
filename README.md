@@ -8,15 +8,6 @@ the controller.
 > power state, and pressing the button may have a different effect depending on
 > whether the console is on or off.
 
-```mermaid
-flowchart LR
-  USB["Micro-USB<br/>PC or USB supply"] --> MCU["NodeMCU V3 + Base Shield"]
-  MCU -->|"D1 / GPIO5"| SIGNAL["MG90S signal<br/>orange"]
-  MCU -->|GND| SERVO_GND["MG90S ground<br/>brown"]
-  PSU["+5 V regulated supply"] -->|+5 V| SERVO_VCC["MG90S power<br/>red"]
-  PSU_GND["Supply GND"] --- SERVO_GND
-```
-
 ## Commands
 
 | Telegram command | Action |
@@ -45,9 +36,17 @@ servo an SG90; the purchased part is the MG90S.
 
 ## Wiring
 
-The diagram follows the wiring details in the build notes. I have not inspected
-the physical connections. Servo wire colors shown are brown for ground, orange
-for signal, and red for power.
+The mapping below follows the supplied build notes; I have not inspected the
+physical connections.
+
+| From | To |
+|---|---|
+| NodeMCU D1 / GPIO5 | Servo orange signal |
+| Base Shield GND | Servo brown ground |
+| Regulated 5 V positive | Servo red power |
+| Regulated 5 V ground | Base Shield GND and NodeMCU GND |
+
+Connect the Micro-USB cable to the NodeMCU for programming and board power.
 
 Robotistan lists the MG90S for 4.8-6 V at 250-700 mA. Use a regulated 5 V supply
 that can handle the servo's startup current. Do not power it from the NodeMCU's
