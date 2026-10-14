@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 410" role="img" aria-labelledby="title desc">
+  <title id="title">NodeMCU and MG90S servo wiring</title>
+  <desc id="desc">NodeMCU D1 connects to the servo signal wire. NodeMCU ground and servo ground are common. A regulated 5 volt supply powers the servo.</desc>
+  <style>
+    text { fill: currentColor; font: 15px sans-serif; }
+    .title { font-size: 20px; font-weight: 700; }
+    .small { opacity: 0.72; font-size: 13px; }
+    .box { fill: none; stroke: currentColor; stroke-width: 2; }
+    .signal { fill: none; stroke: currentColor; stroke-width: 4; }
+    .ground { fill: none; stroke: currentColor; stroke-width: 4; stroke-dasharray: 8 4; }
+    .power { fill: none; stroke: currentColor; stroke-width: 4; stroke-dasharray: 2 4; }
+    .terminal { fill: none; stroke: currentColor; stroke-width: 2; }
+  </style>
+
+  <text class="title" x="32" y="38">NodeMCU to MG90S</text>
+
+  <rect class="box" x="32" y="72" width="306" height="214" rx="12" />
+  <text x="52" y="105" font-weight="700">NodeMCU V3 + Base Shield</text>
+  <text class="small" x="52" y="128">ESP-12E, CH340</text>
+  <circle class="terminal" cx="338" cy="150" r="7" />
+  <text x="315" y="155" text-anchor="end">D1 / GPIO5</text>
+  <circle class="terminal" cx="338" cy="220" r="7" />
+  <text x="315" y="225" text-anchor="end">GND</text>
+  <text class="small" x="52" y="266">USB power and programming: Micro-USB</text>
+
+  <rect class="box" x="532" y="94" width="276" height="180" rx="12" />
+  <text x="556" y="126" font-weight="700">MG90S servo</text>
+  <circle class="terminal" cx="532" cy="150" r="7" />
+  <text x="556" y="155">Orange: signal</text>
+  <circle class="terminal" cx="532" cy="198" r="7" />
+  <text x="556" y="203">Brown: GND</text>
+  <circle class="terminal" cx="532" cy="246" r="7" />
+  <text x="556" y="251">Red: +5 V</text>
+
+  <path class="signal" d="M345 150 H500 V150 H532" />
+  <path class="ground" d="M345 220 H455 V198 H532" />
+  <path class="power" d="M538 320 H515 V246 H532" />
+  <path class="ground" d="M538 355 H480 V220 H338" />
+
+  <rect class="box" x="360" y="300" width="178" height="76" rx="10" />
+  <text x="380" y="328" font-weight="700">Regulated 5 V</text>
+  <circle class="terminal" cx="538" cy="320" r="6" />
+  <text class="small" x="380" y="350">+5 V</text>
+  <circle class="terminal" cx="538" cy="355" r="6" />
+  <text class="small" x="414" y="370">GND</text>
+  <text class="small" x="32" y="400">External servo supply is not in the listed purchases. Share its ground with NodeMCU GND.</text>
+</svg>

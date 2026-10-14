@@ -1,107 +1,94 @@
-# PS5 Telegram power-button controller
+# PS5 power button, controlled by Telegram
 
-An ESP8266 polls a Telegram bot and uses an MG90S servo to press the PS5's
-physical power button. The servo simulates a button press; it does not control
-the console over its network API. The effect depends on the console's current
-power state.
+A NodeMCU ESP8266 polls a Telegram bot and moves an MG90S servo to press the
+PS5's physical power button. Send `/press` to press it, or `/status` to check
+the controller.
+
+> The servo presses the console's physical button. It cannot read the PS5's
+> power state, and pressing the button may have a different effect depending on
+> whether the console is on or off.
+
+![Wiring diagram for the NodeMCU, MG90S servo, and external 5 V supply](wiring.svg)
+
+## Commands
+
+| Telegram command | Action |
+|---|---|
+| `/press` | Move the servo to 180 degrees for 600 ms, then return it to 10 degrees |
+| `/status` | Report local time, uptime, Wi-Fi signal, and IP address |
+| `/start`, `/help` | Show the command list |
+
+The bot accepts commands only from the `CHAT_ID` configured in `secrets.h`.
+Open a private chat and send `/start` once so Telegram allows the bot to reply.
 
 ## Parts
 
 | Part | Use |
 |---|---|
-| [NodeMCU V3 ESP8266 ESP-12E CH340](https://www.robotistan.com/nodemcu-lolin-esp8266-gelistirme-karti-usb-chip-ch340) | ESP8266 controller and USB serial interface |
-| [NodeMCU ESP8266 Base Shield, CH340 compatible](https://www.robotistan.com/nodemcu-lolin-esp8266-base-shield) | Breakout/power base; the NodeMCU board is separate |
-| [MG90S 180-degree servo](https://www.robotistan.com/mg90s-servo-motor) | Moves the button pusher |
+| [NodeMCU V3 ESP8266 ESP-12E CH340](https://www.robotistan.com/nodemcu-lolin-esp8266-gelistirme-karti-usb-chip-ch340) | Controller and USB serial interface |
+| [NodeMCU ESP8266 Base Shield](https://www.robotistan.com/nodemcu-lolin-esp8266-base-shield) | Breakout for the NodeMCU CH340 board. The board is sold separately. |
+| [MG90S 180-degree servo](https://www.robotistan.com/mg90s-servo-motor) | Presses the PS5 button |
 | [Black mini breadboard](https://www.robotistan.com/siyah-mini-breadboard-breadboard-mini-self-adhesive-black) | Holds the assembly |
-| [40-pin, 200 mm male-female jumper wires](https://www.robotistan.com/40-pin-ayrilabilen-disi-erkek-m-f-jumper-kablo-200-mm) | Servo connections |
-| [1.5 m Micro-USB cable](https://www.robotistan.com/mikro-usb-kablo-1) | Programming and NodeMCU power |
+| [40-pin, 200 mm male-female jumper wires](https://www.robotistan.com/40-pin-ayrilabilen-disi-erkek-m-f-jumper-kablo-200-mm) | Connect the servo |
+| [1.5 m Micro-USB cable](https://www.robotistan.com/mikro-usb-kablo-1) | Program and power the NodeMCU |
 
-The supplied build note also mentions an external 5 V phone adapter and an
-eraser used as a soft contact pad. Neither appears in the purchase list; confirm
-what was actually used in the assembled unit. The note calls the servo an SG90,
-but the purchase list says MG90S; this project documents the purchased MG90S.
+The written build notes also mention a 5 V phone adapter and an eraser used as
+a soft contact pad. Neither is in the purchase list. The notes once called the
+servo an SG90; the purchased part is the MG90S.
 
 ## Wiring
 
-| Servo wire | Connect to |
-|---|---|
-| Brown (GND) | Ground on the base shield |
-| Orange (signal) | D1 on the base shield (GPIO5 on NodeMCU) |
-| Red (power) | A regulated 5 V supply, not the 3.3 V pin |
+The diagram follows the wiring details in the build notes. I have not inspected
+the physical connections. Servo wire colors shown are brown for ground, orange
+for signal, and red for power.
 
-This mapping follows the wiring note you supplied; I have not visually verified
-the physical connections.
+Robotistan lists the MG90S for 4.8-6 V at 250-700 mA. Use a regulated 5 V supply
+that can handle the servo's startup current. Do not power it from the NodeMCU's
+3.3 V pin. If the servo has a separate supply, join its ground to NodeMCU GND.
+The build notes report resets when servo power shared the NodeMCU supply and
+recommend a separate 5 V source. They do not give a current measurement. Check
+the Base Shield's VIN wiring before using it as the servo supply.
 
-Robotistan lists the MG90S at 4.8–6 V and 250–700 mA. Use a regulated supply
-that can handle its startup/stall current. If the servo has a separate 5 V
-supply, connect its ground to NodeMCU ground as well. Do not assume the shield's
-VIN pin can supply the servo without checking how the shield is powered and
-wired. Your build note reports resets when servo power shared the NodeMCU supply
-and recommends separate 5 V; no current measurement was provided. Secure the
-servo so it presses the PS5 button gently; the reported eraser pad softens
-contact.
+## Build and upload
 
-## Software and libraries
+1. Install the **ESP8266 by ESP8266 Community** board package in Arduino IDE.
+   Board Manager URL:
+   `https://arduino.esp8266.com/stable/package_esp8266com_index.json`
+2. Install [Universal-Arduino-Telegram-Bot](https://github.com/witnessmenow/Universal-Arduino-Telegram-Bot)
+   version **1.3.0**. Download the [V1.3.0 ZIP](https://github.com/witnessmenow/Universal-Arduino-Telegram-Bot/archive/refs/tags/V1.3.0.zip)
+   and use **Sketch > Include Library > Add .ZIP Library**.
+3. Install **ArduinoJson 6.21.5** by Benoit Blanchon from Library Manager.
+   UniversalTelegramBot includes `ArduinoJson.h`, so this is a required
+   dependency.
+4. Copy `secrets.example.h` to `secrets.h`. Add the 2.4 GHz Wi-Fi SSID and
+   password, the Telegram bot token, and the numeric chat ID. Keep `secrets.h`
+   local. Git ignores it.
+5. Open `ps5_controller.ino`, select **NodeMCU 1.0 (ESP-12E Module)** and the
+   serial port, then click **Upload**. Open Serial Monitor at **115200 baud**.
 
-- Arduino IDE with the **ESP8266 by ESP8266 Community** board package.
-  Board Manager URL: `https://arduino.esp8266.com/stable/package_esp8266com_index.json`
-- Select **NodeMCU 1.0 (ESP-12E Module)** for the NodeMCU V3 ESP-12E board.
-- **UniversalTelegramBot 1.3.0**. The local archive supplied for this build is
-  `/Users/omerdikyol/Downloads/Universal-Arduino-Telegram-Bot-1.3.0.zip`.
-  Install it with **Sketch → Include Library → Add .ZIP Library…**.
-- **ArduinoJson 6.21.5** (Benoit Blanchon), installed through Library Manager.
-  UniversalTelegramBot includes `ArduinoJson.h`, so this is required even
-  though the sketch does not use ArduinoJson APIs directly.
-- `ESP8266WiFi`, `WiFiClientSecure`, `Servo`, and `time` are supplied by the
-  ESP8266 board platform; do not install a separate AVR Servo library for this
-  board.
+`ESP8266WiFi`, `WiFiClientSecure`, `Servo`, and `time` come with the ESP8266
+board package. Do not install an AVR-specific Servo library.
 
-## Configure, compile, and upload
+The sketch compiled with ESP8266 platform 3.1.2, ArduinoJson 6.21.5, and
+UniversalTelegramBot 1.3.0 for `esp8266:esp8266:nodemcuv2`.
+The latest compile used 30,960 / 80,192 bytes RAM (38%), 61,715 / 65,536
+bytes IRAM (94%), and 379,144 / 1,048,576 bytes in flash (36%).
 
-1. Open `ps5_controller.ino` in Arduino IDE.
-2. In this directory, copy `secrets.example.h` to `secrets.h` and fill in the
-   Wi-Fi SSID/password, Telegram bot token, and numeric Telegram chat ID. Use a
-   2.4 GHz Wi-Fi network; ESP8266 does not support 5 GHz.
-3. Keep `secrets.h` local. The repository ignores it. Never commit it or paste
-   its contents into chat.
-4. Select **NodeMCU 1.0 (ESP-12E Module)** and the board's serial port, then
-   click **Upload**. Open Serial Monitor at **115200 baud** for startup output.
-5. Open a private chat with the bot and send `/start` once. The bot cannot
-   initiate a Telegram conversation before the user starts it.
+## How it starts
 
-The sanitized sketch compiled successfully for `esp8266:esp8266:nodemcuv2`
-with ESP8266 platform 3.1.2, ArduinoJson 6.21.5, and UniversalTelegramBot
-1.3.0. The compiler reported 32,416 / 80,192 bytes RAM (40%),
-61,715 / 65,536 bytes IRAM (94%), and 384,368 / 1,048,576 bytes in flash
-(36%). The owner confirmed receiving the Telegram status message and that the
-bot works.
-
-## Telegram commands and behavior
-
-- `/ac`: moves the servo to 180 degrees for 600 ms, returns it to 10 degrees,
-  then detaches it. This presses the physical PS5 button; it does not guarantee
-  that the console powers on if it is already on.
-- `/status` and `/durum`: reports local time, uptime, Wi-Fi RSSI, and IP address.
-- `/start` and `/help`: returns the command list.
-
-At boot the servo is moved to 10 degrees and detached. The ESP8266 then waits
-until Wi-Fi connects, synchronizes time with NTP, and sends a boot report. If
-time is not synchronized within five minutes, the sketch restarts. Wi-Fi
-connection itself has no timeout. Messages from chat IDs other than the
-configured `CHAT_ID` are silently ignored.
+At boot, the servo moves to its resting position at 10 degrees and detaches.
+The controller joins Wi-Fi, waits for NTP time, then sends a boot message.
+It restarts if time has not synchronized after five minutes. Wi-Fi connection
+has no timeout. After startup, the loop polls Telegram once per second.
 
 ## Troubleshooting and security
 
-- Compile error `ArduinoJson.h: No such file or directory`: install ArduinoJson
-  6.21.5 from Library Manager.
-- No reply to `/start`: check that the board is on 2.4 GHz Wi-Fi, that local
-  `secrets.h` has the right values, and that the bot is being messaged from the
-  configured chat ID. Check Serial Monitor at 115200 baud; repeated `.` means
-  the sketch is still waiting for Wi-Fi, while repeated `*` means it is waiting
-  for NTP time.
-- `client.setInsecure()` disables TLS certificate verification. It is retained
-  to match the currently working sketch, but permits a man-in-the-middle attack
-  on the Telegram TLS connection. Add certificate validation only as a separate
-  change and retest against the installed ESP8266 and Telegram libraries.
-- If Wi-Fi credentials or the bot token are exposed, rotate them, update local
-  `secrets.h`, and re-upload. Never commit the replacement values.
+- `ArduinoJson.h: No such file or directory`: install ArduinoJson 6.21.5.
+- Repeated `.` in Serial Monitor means the board is waiting for Wi-Fi.
+  Repeated `*` means it is waiting for NTP time. ESP8266 supports 2.4 GHz Wi-Fi,
+  not 5 GHz.
+- `client.setInsecure()` disables TLS certificate verification. The sketch
+  keeps this setting to match the tested firmware, but it leaves Telegram
+  connections vulnerable to a man-in-the-middle attack.
+- If Wi-Fi credentials or the bot token are exposed, rotate them, update
+  `secrets.h`, and upload again. Never commit `secrets.h`.

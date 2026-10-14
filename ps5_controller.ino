@@ -6,17 +6,15 @@
 #include <time.h>
 #include "secrets.h"
 
-// --- SETTINGS ---
 const int servoPin = D1;
-const int acikAci = 180;
-const int kapaliAci = 10;
+const int pressAngle = 180;
+const int restAngle = 10;
 
-// Turkey time (UTC+3; POSIX TZ signs are reversed).
+// POSIX TZ signs are reversed: GMT-3 means UTC+3.
 #define MY_NTP_SERVER "pool.ntp.org"
 #define MY_TZ "GMT-3"
 
 Servo myServo;
-X509List cert(TELEGRAM_CERTIFICATE_ROOT);
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOT_TOKEN, client);
 
@@ -24,12 +22,12 @@ unsigned long lastTimeBotRan;
 const int botRequestDelay = 1000;
 String bootLog = "";
 
-String getTarihSaat() {
+String getDateTime() {
   time_t now = time(nullptr);
   struct tm* timeinfo = localtime(&now);
 
   if (timeinfo == nullptr || timeinfo->tm_year + 1900 < 2024) {
-    return "[" + String(millis() / 1000) + "sn]";
+    return "[" + String(millis() / 1000) + "s]";
   }
 
   char buffer[30];
@@ -42,11 +40,12 @@ String getUptime() {
   int min = (sec / 60) % 60;
   int hr = (sec / 3600) % 24;
   int days = sec / 86400;
-  return String(days) + " gün " + String(hr) + " sa " + String(min) + " dk";
+  return String(days) + " days " + String(hr) + " hr " +
+         String(min) + " min";
 }
 
-void lojEkle(String mesaj) {
-  bootLog += getTarihSaat() + " -> " + mesaj + "\n";
+void appendBootLog(String message) {
+  bootLog += getDateTime() + " -> " + message + "\n";
 }
 
 void setup() {
@@ -55,7 +54,7 @@ void setup() {
   // Return the servo to its resting position after boot.
   delay(2000);
   myServo.attach(servoPin);
-  myServo.write(kapaliAci);
+  myServo.write(restAngle);
   delay(500);
   myServo.detach();
 
@@ -63,79 +62,76 @@ void setup() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   client.setInsecure();
 
-  lojEkle("Sistem Başlatıldı. Wi-Fi aranıyor...");
+  appendBootLog("System started. Connecting to Wi-Fi...");
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
     Serial.print(".");
   }
-  Serial.println("\nModeme Baglandi.");
+  Serial.println("\nConnected to Wi-Fi.");
 
   configTime(MY_TZ, MY_NTP_SERVER);
-  lojEkle("Modeme bağlandı, İnternet bekleniyor...");
+  appendBootLog("Wi-Fi connected. Waiting for time synchronization...");
 
-  int beklemeSayaci = 0;
+  int timeSyncWaitSeconds = 0;
   while (time(nullptr) < 1700000000) {
     delay(1000);
     Serial.print("*");
-    beklemeSayaci++;
+    timeSyncWaitSeconds++;
 
-    if (beklemeSayaci > 300) {
+    if (timeSyncWaitSeconds > 300) {
       ESP.restart();
     }
   }
 
-  lojEkle("İNTERNET GELDİ! IP: " + WiFi.localIP().toString());
-
-  // Telegram requires the user to start the bot chat before it can message them.
-  bot.sendMessage(CHAT_ID, "📅 SİSTEM GERİ GELDİ!\n\n" + bootLog, "");
+  appendBootLog("Internet ready. IP: " + WiFi.localIP().toString());
+  bot.sendMessage(CHAT_ID, "System is back online.\n\n" + bootLog, "");
   bootLog = "";
 }
 
 void handleNewMessages(int numNewMessages) {
   for (int i = 0; i < numNewMessages; i++) {
-    String chat_id = String(bot.messages[i].chat_id);
+    String chatId = String(bot.messages[i].chat_id);
     String text = bot.messages[i].text;
 
-    // Ignore messages from all chats except the configured owner chat.
-    if (chat_id != CHAT_ID) {
+    // Ignore messages from chats other than the configured owner chat.
+    if (chatId != CHAT_ID) {
       continue;
     }
 
-    if (text == "/ac") {
-      bot.sendMessage(chat_id, "🎮 PS5 Açılıyor...\nSaat: " + getTarihSaat(), "");
+    if (text == "/press") {
+      bot.sendMessage(chatId, "Pressing the PS5 power button...", "");
 
       myServo.attach(servoPin);
-      myServo.write(acikAci);
+      myServo.write(pressAngle);
       delay(600);
-      myServo.write(kapaliAci);
+      myServo.write(restAngle);
       delay(500);
       myServo.detach();
 
-      bot.sendMessage(chat_id, "✅ Tuşa basıldı.", "");
-    } else if (text == "/durum" || text == "/status") {
-      String mesaj = "📊 *SİSTEM DURUM RAPORU*\n";
-      mesaj += "--------------------------\n";
-      mesaj += "🕒 Tarih: " + getTarihSaat() + "\n";
-      mesaj += "⏳ Çalışma Süresi: " + getUptime() + "\n";
-      mesaj += "📡 Wi-Fi Gücü: " + String(WiFi.RSSI()) + " dBm\n";
-      mesaj += "🌐 IP Adresi: " + WiFi.localIP().toString() + "\n";
-      mesaj += "🤖 Servo Durumu: Beklemede (Pasif)\n";
+      bot.sendMessage(chatId, "Button press complete.", "");
+    } else if (text == "/status") {
+      String message = "System status\n";
+      message += "--------------------------\n";
+      message += "Time: " + getDateTime() + "\n";
+      message += "Uptime: " + getUptime() + "\n";
+      message += "Wi-Fi signal: " + String(WiFi.RSSI()) + " dBm\n";
+      message += "IP address: " + WiFi.localIP().toString() + "\n";
+      message += "Servo: idle\n";
 
-      bot.sendMessage(chat_id, mesaj, "");
+      bot.sendMessage(chatId, message, "");
     } else if (text == "/start" || text == "/help") {
-      String mesaj = "Merhaba! Komut Listesi:\n\n";
-      mesaj += "👉 /ac - PS5'i açar\n";
-      mesaj += "👉 /status - Sistem durumunu gösterir";
-      bot.sendMessage(chat_id, mesaj, "");
+      String message = "Available commands:\n\n";
+      message += "/press - Press the PS5 power button\n";
+      message += "/status - Show device status";
+      bot.sendMessage(chatId, message, "");
     }
   }
 }
 
 void loop() {
-  // Reconnect to Wi-Fi after a drop.
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Kopma algılandı!");
+    Serial.println("Wi-Fi connection lost.");
     WiFi.disconnect();
     WiFi.reconnect();
 
