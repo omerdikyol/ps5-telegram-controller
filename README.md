@@ -28,6 +28,7 @@ but the purchase list says MG90S; this project documents the purchased MG90S.
 | Brown (GND) | Ground on the base shield |
 | Orange (signal) | D1 on the base shield (GPIO5 on NodeMCU) |
 | Red (power) | A regulated 5 V supply, not the 3.3 V pin |
+
 This mapping follows the wiring note you supplied; I have not visually verified
 the physical connections.
 
