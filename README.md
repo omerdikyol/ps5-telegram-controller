@@ -8,7 +8,14 @@ the controller.
 > power state, and pressing the button may have a different effect depending on
 > whether the console is on or off.
 
-![Wiring diagram for the NodeMCU, MG90S servo, and external 5 V supply](wiring.svg)
+```mermaid
+flowchart LR
+  USB["Micro-USB<br/>PC or USB supply"] --> MCU["NodeMCU V3 + Base Shield"]
+  MCU -->|"D1 / GPIO5"| SIGNAL["MG90S signal<br/>orange"]
+  MCU -->|GND| SERVO_GND["MG90S ground<br/>brown"]
+  PSU["+5 V regulated supply"] -->|+5 V| SERVO_VCC["MG90S power<br/>red"]
+  PSU_GND["Supply GND"] --- SERVO_GND
+```
 
 ## Commands
 
