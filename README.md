@@ -1,4 +1,10 @@
-# PS5 power button, controlled by Telegram
+<h1 align="center">PS5 power button, controlled by Telegram</h1>
+
+<p align="center">
+  <img alt="board: NodeMCU ESP8266" src="https://img.shields.io/badge/board-NodeMCU%20ESP8266-lightgrey">
+  <img alt="control: Telegram bot" src="https://img.shields.io/badge/control-Telegram%20bot-26A5E4">
+  <img alt="hardware: MG90S servo" src="https://img.shields.io/badge/hardware-MG90S%20servo-orange">
+</p>
 
 A NodeMCU ESP8266 polls a Telegram bot and moves an MG90S servo to press the
 PS5's physical power button. Send `/press` to press it, or `/status` to check
