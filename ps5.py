@@ -10,11 +10,37 @@
 Network commands need a one-time Remote Play pairing (see README).
 """
 import asyncio
+import socket
 import sys
+import time
 import warnings
 
-PS5_HOST = "192.168.1.163"  # give the PS5 a DHCP reservation so this stays valid
+PS5_HOST = "192.168.1.163"  # last known address; find_ps5() searches the /24 if it moved
 SERIAL_PORT = "/dev/ttyUSB0"
+SRCH = b"SRCH * HTTP/1.1\ndevice-discovery-protocol-version:00030010\n"
+
+
+def find_ps5(near=PS5_HOST, wait=2.0):
+    """Ask every address of near's /24 the PS5 discovery question (UDP 9302)
+    and return the first one that answers as a PS5, or None. Unicast, so it
+    also works from a Docker bridge network where broadcasts stay inside."""
+    prefix = near.rsplit(".", 1)[0]
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        for i in range(1, 255):
+            s.sendto(SRCH, (f"{prefix}.{i}", 9302))
+        end = time.time() + wait
+        while (left := end - time.time()) > 0:
+            s.settimeout(left)
+            try:
+                data, (ip, _) = s.recvfrom(2048)
+            except socket.timeout:
+                break
+            if b"host-type:PS5" in data:
+                return ip
+    finally:
+        s.close()
+    return None
 
 
 def serial_cmd(cmd):
@@ -50,7 +76,13 @@ def device():
     d = RPDevice(PS5_HOST)
     # it skips a query now and then, most of all just after changing state
     if not any(d.get_status() for _ in range(5)):
-        sys.exit(f"PS5 not reachable at {PS5_HOST}")
+        moved = find_ps5()
+        if not moved:
+            sys.exit(f"PS5 not answering at {PS5_HOST} or anywhere on its /24 (off or unplugged)")
+        print(f"PS5 found at {moved}, not {PS5_HOST}", file=sys.stderr)
+        d = RPDevice(moved)
+        if not any(d.get_status() for _ in range(5)):
+            sys.exit(f"PS5 not reachable at {moved}")
     return d, Profiles.load().usernames[0]
 
 

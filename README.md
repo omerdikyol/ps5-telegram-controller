@@ -108,7 +108,9 @@ plugged into its USB port:
 | `ps5.py press` | USB serial | Press the power button with the servo |
 | `ps5.py board` | USB serial | NodeMCU status |
 
-Set `PS5_HOST` and `SERIAL_PORT` at the top of the script.
+Set `PS5_HOST` and `SERIAL_PORT` at the top of the script. If the PS5 does not
+answer at `PS5_HOST`, the script asks every address of that /24 and uses the
+one that answers as a PS5, so no DHCP reservation is needed.
 
 **USB serial.** The sketch accepts `press` and `status`, one per line at
 115200 baud, and answers with a line starting `OK` or `ERR`. It works without
