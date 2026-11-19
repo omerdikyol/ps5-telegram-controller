@@ -20,7 +20,7 @@ UniversalTelegramBot bot(BOT_TOKEN, client);
 
 unsigned long lastTimeBotRan;
 const int botRequestDelay = 1000;
-String bootLog = "";
+bool onlineAnnounced = false;
 
 String getDateTime() {
   time_t now = time(nullptr);
@@ -44,8 +44,46 @@ String getUptime() {
          String(min) + " min";
 }
 
-void appendBootLog(String message) {
-  bootLog += getDateTime() + " -> " + message + "\n";
+void pressButton() {
+  myServo.attach(servoPin);
+  myServo.write(pressAngle);
+  delay(600);
+  myServo.write(restAngle);
+  delay(500);
+  myServo.detach();
+}
+
+String statusText() {
+  String message = "System status\n";
+  message += "--------------------------\n";
+  message += "Time: " + getDateTime() + "\n";
+  message += "Uptime: " + getUptime() + "\n";
+  if (WiFi.status() == WL_CONNECTED) {
+    message += "Wi-Fi signal: " + String(WiFi.RSSI()) + " dBm\n";
+    message += "IP address: " + WiFi.localIP().toString() + "\n";
+  } else {
+    message += "Wi-Fi: not connected\n";
+  }
+  message += "Servo: idle\n";
+  return message;
+}
+
+// USB serial commands, one per line: "press" or "status".
+void handleSerial() {
+  if (!Serial.available()) {
+    return;
+  }
+  String line = Serial.readStringUntil('\n');
+  line.trim();
+  if (line == "press") {
+    pressButton();
+    Serial.println("OK press");
+  } else if (line == "status") {
+    Serial.print(statusText());
+    Serial.println("OK status");
+  } else if (line.length() > 0) {
+    Serial.println("ERR unknown command: " + line);
+  }
 }
 
 void setup() {
@@ -62,31 +100,9 @@ void setup() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   client.setInsecure();
 
-  appendBootLog("System started. Connecting to Wi-Fi...");
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.print(".");
-  }
-  Serial.println("\nConnected to Wi-Fi.");
-
   configTime(MY_TZ, MY_NTP_SERVER);
-  appendBootLog("Wi-Fi connected. Waiting for time synchronization...");
-
-  int timeSyncWaitSeconds = 0;
-  while (time(nullptr) < 1700000000) {
-    delay(1000);
-    Serial.print("*");
-    timeSyncWaitSeconds++;
-
-    if (timeSyncWaitSeconds > 300) {
-      ESP.restart();
-    }
-  }
-
-  appendBootLog("Internet ready. IP: " + WiFi.localIP().toString());
-  bot.sendMessage(CHAT_ID, "System is back online.\n\n" + bootLog, "");
-  bootLog = "";
+  Serial.setTimeout(100);
+  Serial.println("\nReady. Serial commands: press, status");
 }
 
 void handleNewMessages(int numNewMessages) {
@@ -102,24 +118,10 @@ void handleNewMessages(int numNewMessages) {
     if (text == "/press") {
       bot.sendMessage(chatId, "Pressing the PS5 power button...", "");
 
-      myServo.attach(servoPin);
-      myServo.write(pressAngle);
-      delay(600);
-      myServo.write(restAngle);
-      delay(500);
-      myServo.detach();
-
+      pressButton();
       bot.sendMessage(chatId, "Button press complete.", "");
     } else if (text == "/status") {
-      String message = "System status\n";
-      message += "--------------------------\n";
-      message += "Time: " + getDateTime() + "\n";
-      message += "Uptime: " + getUptime() + "\n";
-      message += "Wi-Fi signal: " + String(WiFi.RSSI()) + " dBm\n";
-      message += "IP address: " + WiFi.localIP().toString() + "\n";
-      message += "Servo: idle\n";
-
-      bot.sendMessage(chatId, message, "");
+      bot.sendMessage(chatId, statusText(), "");
     } else if (text == "/start" || text == "/help") {
       String message = "Available commands:\n\n";
       message += "/press - Press the PS5 power button\n";
@@ -130,18 +132,20 @@ void handleNewMessages(int numNewMessages) {
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Wi-Fi connection lost.");
-    WiFi.disconnect();
-    WiFi.reconnect();
+  handleSerial();
 
-    while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-    }
-    delay(2000);
+  // Telegram is optional: skip it while Wi-Fi is down. The ESP8266 reconnects
+  // on its own after WiFi.begin().
+  if (WiFi.status() != WL_CONNECTED) {
+    return;
   }
 
-  if (millis() > lastTimeBotRan + botRequestDelay) {
+  if (!onlineAnnounced) {
+    onlineAnnounced = bot.sendMessage(CHAT_ID, "System is online. IP: " +
+                                      WiFi.localIP().toString(), "");
+  }
+
+  if (millis() - lastTimeBotRan > botRequestDelay) {
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
     while (numNewMessages) {
       handleNewMessages(numNewMessages);

@@ -8,11 +8,13 @@
 
 A NodeMCU ESP8266 polls a Telegram bot and moves an MG90S servo to press the
 PS5's physical power button. Send `/press` to press it, or `/status` to check
-the controller.
+the controller. A Linux host on the same network can also drive the servo over
+USB and wake or sleep the console over the LAN; see
+[Control from a Linux host](#control-from-a-linux-host).
 
 > The servo presses the console's physical button. It cannot read the PS5's
 > power state, and pressing the button may have a different effect depending on
-> whether the console is on or off.
+> whether the console is on or off. `ps5.py status` reads the state over the LAN.
 
 ## Commands
 
@@ -89,16 +91,63 @@ bytes IRAM (94%), and 379,144 / 1,048,576 bytes in flash (36%).
 ## How it starts
 
 At boot, the servo moves to its resting position at 10 degrees and detaches.
-The controller joins Wi-Fi, waits for NTP time, then sends a boot message.
-It restarts if time has not synchronized after five minutes. Wi-Fi connection
-has no timeout. After startup, the loop polls Telegram once per second.
+The controller starts joining Wi-Fi in the background and accepts USB serial
+commands right away. Once Wi-Fi is up it sends an online message and polls
+Telegram once per second. Without Wi-Fi, serial control still works.
+
+## Control from a Linux host
+
+`ps5.py` runs on a Linux machine on the same LAN as the PS5, with the NodeMCU
+plugged into its USB port:
+
+| Command | Path | Action |
+|---|---|---|
+| `ps5.py status` | LAN | `on`, `rest mode`, or an error when the console does not answer |
+| `ps5.py wake` | LAN | Wake from rest mode and wait until it reports on |
+| `ps5.py standby` | LAN | Put it into rest mode |
+| `ps5.py press` | USB serial | Press the power button with the servo |
+| `ps5.py board` | USB serial | NodeMCU status |
+
+Set `PS5_HOST` and `SERIAL_PORT` at the top of the script.
+
+**USB serial.** The sketch accepts `press` and `status`, one per line at
+115200 baud, and answers with a line starting `OK` or `ERR`. It works without
+Wi-Fi. The user needs the `dialout` group. Opening the port with pyserial's
+defaults leaves the board running; forcing DTR/RTS low first resets it. Some
+NodeMCU V3 boards carry an FTDI FT232R instead of the CH340; both work.
+
+**LAN.** Wake and standby use the PS5 Remote Play protocol through
+[pyremoteplay](https://github.com/ktnrg45/pyremoteplay) 0.7.6. Version 0.7.6
+needs `pyee<9` and `async_timeout`:
+
+```sh
+python3 -m venv --system-site-packages venv
+venv/bin/pip install pyremoteplay "pyee<9" async_timeout
+```
+
+On the PS5, enable **Stay connected to the Internet** and **Enable turning on
+PS5 from network** under Settings > System > Power Saving > Features Available
+in Rest Mode. Then pair once:
+
+1. Open the URL from `pyremoteplay.oauth.get_login_url()`, sign in to PSN, and
+   copy the redirect URL. Save the account with
+   `Profiles.load().update_user(format_user_account(oauth.get_user_account(url)))`
+   and `.save()`.
+2. On the PS5, open Settings > System > Remote Play > Link Device, then call
+   `RPDevice(PS5_HOST).register(user, pin)` with the PIN.
+
+The pairing is stored in `~/.pyremoteplay/.profile.json` and does not depend
+on the console staying signed in to PSN.
+
+Wake works only from rest mode. After a power cut or a full shutdown, only the
+servo can start the console. On firmware 14.23 pyremoteplay reports standby as
+failed while the console goes to rest mode within 2 s, so `ps5.py` checks the
+console's state instead.
 
 ## Troubleshooting and security
 
 - `ArduinoJson.h: No such file or directory`: install ArduinoJson 6.21.5.
-- Repeated `.` in Serial Monitor means the board is waiting for Wi-Fi.
-  Repeated `*` means it is waiting for NTP time. ESP8266 supports 2.4 GHz Wi-Fi,
-  not 5 GHz.
+- ESP8266 supports 2.4 GHz Wi-Fi, not 5 GHz.
 - `client.setInsecure()` disables TLS certificate verification. The sketch
   keeps this setting to match the tested firmware, but it leaves Telegram
   connections vulnerable to a man-in-the-middle attack.
